@@ -195,6 +195,12 @@ select:focus-visible,
   font-size: 12px;
 }
 
+.sync-status {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 .lock-btn {
   padding: 0;
   border: none;

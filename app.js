@@ -1,7 +1,8 @@
 const PASSWORD = "backlog123";
-const STORAGE_KEY = "taskBacklog.tasks";
 const UNLOCK_KEY = "taskBacklog.unlocked";
-const CLIENTS_STORAGE_KEY = "taskBacklog.clients";
+const PASSWORD_KEY = "taskBacklog.password";
+const API_URL = "/api/tasks";
+const POLL_INTERVAL_MS = 4000;
 
 const CLIENT_PALETTE = [
   { bg: "#e9e6ff", fg: "#5b52e5" },
@@ -13,10 +14,14 @@ const CLIENT_PALETTE = [
 ];
 
 let tasks = [];
-let clients = [];
+let clients = ["Adriel", "Alex"];
+let yearlyGoals = [];
 let activeFilter = "all";
 let editingClientName = null;
 let isAddingClient = false;
+let currentPassword = "";
+let lastUpdatedAt = 0;
+let pollTimer = null;
 
 // ---------- Auth ----------
 const loginScreen = document.getElementById("loginScreen");
@@ -25,17 +30,31 @@ const loginForm = document.getElementById("loginForm");
 const passwordInput = document.getElementById("passwordInput");
 const loginError = document.getElementById("loginError");
 const lockBtn = document.getElementById("lockBtn");
+const syncStatus = document.getElementById("syncStatus");
 
-function unlock() {
+function setSyncStatus(text) {
+  if (syncStatus) syncStatus.textContent = text;
+}
+
+function unlock(passwordValue) {
+  currentPassword = passwordValue;
   sessionStorage.setItem(UNLOCK_KEY, "true");
+  sessionStorage.setItem(PASSWORD_KEY, passwordValue);
   loginScreen.classList.add("hidden");
   appEl.classList.remove("hidden");
   passwordInput.value = "";
   loginError.classList.remove("show");
+  initApp();
 }
 
 function lock() {
+  currentPassword = "";
   sessionStorage.removeItem(UNLOCK_KEY);
+  sessionStorage.removeItem(PASSWORD_KEY);
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
   appEl.classList.add("hidden");
   loginScreen.classList.remove("hidden");
 }
@@ -43,7 +62,7 @@ function lock() {
 loginForm.addEventListener("submit", (e) => {
   e.preventDefault();
   if (passwordInput.value === PASSWORD) {
-    unlock();
+    unlock(passwordInput.value);
   } else {
     loginError.classList.add("show");
   }
@@ -51,8 +70,9 @@ loginForm.addEventListener("submit", (e) => {
 
 lockBtn.addEventListener("click", lock);
 
-if (sessionStorage.getItem(UNLOCK_KEY) === "true") {
-  unlock();
+const storedPassword = sessionStorage.getItem(PASSWORD_KEY);
+if (sessionStorage.getItem(UNLOCK_KEY) === "true" && storedPassword) {
+  unlock(storedPassword);
 }
 
 // ---------- Date ----------
@@ -61,31 +81,76 @@ document.getElementById("todayDate").textContent = new Date().toLocaleDateString
   { weekday: "long", month: "short", day: "numeric", year: "numeric" }
 );
 
-// ---------- Storage ----------
-function loadTasks() {
+// ---------- Shared backend ----------
+async function apiGet() {
+  const res = await fetch(API_URL, { headers: { "x-app-password": currentPassword } });
+  if (!res.ok) throw new Error("request failed: " + res.status);
+  return res.json();
+}
+
+async function apiSave(state) {
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-app-password": currentPassword },
+    body: JSON.stringify(state),
+  });
+  if (!res.ok) throw new Error("request failed: " + res.status);
+  return res.json();
+}
+
+function applyState(state) {
+  tasks = Array.isArray(state.tasks) ? state.tasks : [];
+  clients = Array.isArray(state.clients) && state.clients.length ? state.clients : ["Adriel", "Alex"];
+  yearlyGoals = Array.isArray(state.yearlyGoals) ? state.yearlyGoals : [];
+  lastUpdatedAt = state.updatedAt || 0;
+  renderFilterTabs();
+  renderLabelOptions();
+  render();
+  renderYearly();
+}
+
+async function mutateState(mutator) {
+  setSyncStatus("Saving…");
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    tasks = raw ? JSON.parse(raw) : [];
+    const latest = await apiGet();
+    const draft = {
+      tasks: Array.isArray(latest.tasks) ? latest.tasks : [],
+      clients: Array.isArray(latest.clients) && latest.clients.length ? latest.clients : ["Adriel", "Alex"],
+      yearlyGoals: Array.isArray(latest.yearlyGoals) ? latest.yearlyGoals : [],
+    };
+    mutator(draft);
+    const saved = await apiSave(draft);
+    applyState(saved);
+    setSyncStatus("Synced");
   } catch (e) {
-    tasks = [];
+    setSyncStatus("Sync error");
   }
 }
 
-function saveTasks() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-}
-
-function loadClients() {
+async function pollForUpdates() {
+  if (editingClientName || isAddingClient) return;
   try {
-    const raw = localStorage.getItem(CLIENTS_STORAGE_KEY);
-    clients = raw ? JSON.parse(raw) : ["Adriel", "Alex"];
+    const state = await apiGet();
+    if (state.updatedAt !== lastUpdatedAt) {
+      applyState(state);
+      setSyncStatus("Synced");
+    }
   } catch (e) {
-    clients = ["Adriel", "Alex"];
+    // transient network hiccup; try again next interval
   }
 }
 
-function saveClients() {
-  localStorage.setItem(CLIENTS_STORAGE_KEY, JSON.stringify(clients));
+async function initApp() {
+  setSyncStatus("Loading…");
+  try {
+    const state = await apiGet();
+    applyState(state);
+    setSyncStatus("Synced");
+  } catch (e) {
+    setSyncStatus("Sync error");
+  }
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pollForUpdates, POLL_INTERVAL_MS);
 }
 
 function clientColor(index) {
@@ -114,12 +179,12 @@ priorityToggle.addEventListener("click", () => {
 });
 
 // ---------- Add task ----------
-addTaskForm.addEventListener("submit", (e) => {
+addTaskForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = taskInput.value.trim();
   if (!text) return;
 
-  tasks.unshift({
+  const newTask = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
     text,
     label: labelSelect.value,
@@ -127,15 +192,16 @@ addTaskForm.addEventListener("submit", (e) => {
     priority: addingPriority,
     done: false,
     createdAt: Date.now(),
-  });
+  };
 
   taskInput.value = "";
   addingPriority = false;
   priorityToggle.classList.remove("active");
   priorityToggle.innerHTML = "&#9734;";
 
-  saveTasks();
-  render();
+  await mutateState((draft) => {
+    draft.tasks.unshift(newTask);
+  });
   taskInput.focus();
 });
 
@@ -191,7 +257,7 @@ function countLabel(n) {
   return `${n} task${n === 1 ? "" : "s"}`;
 }
 
-function commitRename(oldName, newValue) {
+async function commitRename(oldName, newValue) {
   const trimmed = (newValue || "").trim();
   editingClientName = null;
 
@@ -204,26 +270,21 @@ function commitRename(oldName, newValue) {
     renderClientStats();
     return;
   }
-  const idx = clients.indexOf(oldName);
-  if (idx === -1) {
-    renderClientStats();
-    return;
-  }
 
-  clients[idx] = trimmed;
-  tasks.forEach((t) => {
-    if (t.label === oldName) t.label = trimmed;
-  });
   if (activeFilter === oldName) activeFilter = trimmed;
+  if (labelSelect.value === oldName) labelSelect.value = trimmed;
 
-  saveClients();
-  saveTasks();
-  renderFilterTabs();
-  renderLabelOptions();
-  render();
+  await mutateState((draft) => {
+    const idx = draft.clients.indexOf(oldName);
+    if (idx === -1) return;
+    draft.clients[idx] = trimmed;
+    draft.tasks.forEach((t) => {
+      if (t.label === oldName) t.label = trimmed;
+    });
+  });
 }
 
-function commitAddClient(value) {
+async function commitAddClient(value) {
   const trimmed = (value || "").trim();
   isAddingClient = false;
 
@@ -237,11 +298,9 @@ function commitAddClient(value) {
     return;
   }
 
-  clients.push(trimmed);
-  saveClients();
-  renderFilterTabs();
-  renderLabelOptions();
-  render();
+  await mutateState((draft) => {
+    draft.clients.push(trimmed);
+  });
 }
 
 function renderClientStats() {
@@ -357,27 +416,27 @@ function renderClientStats() {
 }
 
 // ---------- Task actions ----------
-function toggleDone(id) {
-  const task = tasks.find((t) => t.id === id);
-  if (!task) return;
-  task.done = !task.done;
-  if (task.done) task.doneAt = Date.now();
-  saveTasks();
-  render();
+async function toggleDone(id) {
+  await mutateState((draft) => {
+    const task = draft.tasks.find((t) => t.id === id);
+    if (!task) return;
+    task.done = !task.done;
+    if (task.done) task.doneAt = Date.now();
+  });
 }
 
-function toggleStar(id) {
-  const task = tasks.find((t) => t.id === id);
-  if (!task) return;
-  task.priority = !task.priority;
-  saveTasks();
-  render();
+async function toggleStar(id) {
+  await mutateState((draft) => {
+    const task = draft.tasks.find((t) => t.id === id);
+    if (!task) return;
+    task.priority = !task.priority;
+  });
 }
 
-function deleteTask(id) {
-  tasks = tasks.filter((t) => t.id !== id);
-  saveTasks();
-  render();
+async function deleteTask(id) {
+  await mutateState((draft) => {
+    draft.tasks = draft.tasks.filter((t) => t.id !== id);
+  });
 }
 
 // ---------- Rendering ----------
@@ -482,26 +541,10 @@ function render() {
 }
 
 // ---------- Yearly goals (separate from client backlog) ----------
-const YEARLY_STORAGE_KEY = "taskBacklog.yearlyGoals";
-let yearlyGoals = [];
-
 const yearlyForm = document.getElementById("yearlyForm");
 const yearlyInput = document.getElementById("yearlyInput");
 const yearlyList = document.getElementById("yearlyList");
 const yearlyEmpty = document.getElementById("yearlyEmpty");
-
-function loadYearlyGoals() {
-  try {
-    const raw = localStorage.getItem(YEARLY_STORAGE_KEY);
-    yearlyGoals = raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    yearlyGoals = [];
-  }
-}
-
-function saveYearlyGoals() {
-  localStorage.setItem(YEARLY_STORAGE_KEY, JSON.stringify(yearlyGoals));
-}
 
 function makeYearlyRow(goal) {
   const row = document.createElement("div");
@@ -511,11 +554,13 @@ function makeYearlyRow(goal) {
   checkbox.type = "checkbox";
   checkbox.className = "task-checkbox";
   checkbox.checked = goal.done;
-  checkbox.addEventListener("change", () => {
-    goal.done = !goal.done;
-    if (goal.done) goal.doneAt = Date.now();
-    saveYearlyGoals();
-    renderYearly();
+  checkbox.addEventListener("change", async () => {
+    await mutateState((draft) => {
+      const g = draft.yearlyGoals.find((y) => y.id === goal.id);
+      if (!g) return;
+      g.done = !g.done;
+      if (g.done) g.doneAt = Date.now();
+    });
   });
 
   const text = document.createElement("span");
@@ -527,10 +572,10 @@ function makeYearlyRow(goal) {
   del.className = "delete-btn";
   del.innerHTML = "&#10005;";
   del.title = "Delete goal";
-  del.addEventListener("click", () => {
-    yearlyGoals = yearlyGoals.filter((g) => g.id !== goal.id);
-    saveYearlyGoals();
-    renderYearly();
+  del.addEventListener("click", async () => {
+    await mutateState((draft) => {
+      draft.yearlyGoals = draft.yearlyGoals.filter((g) => g.id !== goal.id);
+    });
   });
 
   row.appendChild(checkbox);
@@ -557,29 +602,21 @@ function renderYearly() {
   document.getElementById("yearlyProgressFill").style.width = `${pct}%`;
 }
 
-yearlyForm.addEventListener("submit", (e) => {
+yearlyForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = yearlyInput.value.trim();
   if (!text) return;
 
-  yearlyGoals.unshift({
+  const newGoal = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
     text,
     done: false,
     createdAt: Date.now(),
-  });
+  };
 
   yearlyInput.value = "";
-  saveYearlyGoals();
-  renderYearly();
+  await mutateState((draft) => {
+    draft.yearlyGoals.unshift(newGoal);
+  });
   yearlyInput.focus();
 });
-
-// ---------- Init ----------
-loadClients();
-loadTasks();
-renderFilterTabs();
-renderLabelOptions();
-render();
-loadYearlyGoals();
-renderYearly();
