@@ -248,6 +248,18 @@ select:focus-visible,
   }
 }
 
+.assignee-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+@media (max-width: 640px) {
+  .assignee-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ---------- Progress card ---------- */
 .progress-card {
   background: linear-gradient(160deg, var(--card-bg) 0%, var(--card-bg-2) 100%);

@@ -176,6 +176,13 @@ const emptyCompleted = document.getElementById("emptyCompleted");
 const filterTabs = document.getElementById("filterTabs");
 const clientStats = document.getElementById("clientStats");
 
+const tomTaskList = document.getElementById("tomTaskList");
+const tomEmptyState = document.getElementById("tomEmptyState");
+const tomOpenCount = document.getElementById("tomOpenCount");
+const derekTaskList = document.getElementById("derekTaskList");
+const derekEmptyState = document.getElementById("derekEmptyState");
+const derekOpenCount = document.getElementById("derekOpenCount");
+
 let addingPriority = false;
 
 priorityToggle.addEventListener("click", () => {
@@ -510,16 +517,32 @@ function makeTaskRow(task) {
   return row;
 }
 
+function sortOpenTasks(list) {
+  return [...list].sort((a, b) => {
+    if (a.priority !== b.priority) return a.priority ? -1 : 1;
+    const rankDiff = LEVEL_RANK[taskLevel(b)] - LEVEL_RANK[taskLevel(a)];
+    if (rankDiff !== 0) return rankDiff;
+    return b.createdAt - a.createdAt;
+  });
+}
+
+function renderAssigneeBacklogs() {
+  const tomOpen = sortOpenTasks(tasks.filter((t) => !t.done && t.assignee === "T"));
+  tomTaskList.innerHTML = "";
+  tomOpen.forEach((t) => tomTaskList.appendChild(makeTaskRow(t)));
+  tomEmptyState.style.display = tomOpen.length ? "none" : "block";
+  tomOpenCount.textContent = `${tomOpen.length} open`;
+
+  const derekOpen = sortOpenTasks(tasks.filter((t) => !t.done && t.assignee === "D"));
+  derekTaskList.innerHTML = "";
+  derekOpen.forEach((t) => derekTaskList.appendChild(makeTaskRow(t)));
+  derekEmptyState.style.display = derekOpen.length ? "none" : "block";
+  derekOpenCount.textContent = `${derekOpen.length} open`;
+}
+
 function render() {
   const filtered = activeFilter === "all" ? tasks : tasks.filter((t) => t.label === activeFilter);
-  const open = filtered
-    .filter((t) => !t.done)
-    .sort((a, b) => {
-      if (a.priority !== b.priority) return a.priority ? -1 : 1;
-      const rankDiff = LEVEL_RANK[taskLevel(b)] - LEVEL_RANK[taskLevel(a)];
-      if (rankDiff !== 0) return rankDiff;
-      return b.createdAt - a.createdAt;
-    });
+  const open = sortOpenTasks(filtered.filter((t) => !t.done));
   const done = filtered.filter((t) => t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
 
   taskList.innerHTML = "";
@@ -534,6 +557,7 @@ function render() {
   document.getElementById("completedCount").textContent = `${done.length} done`;
 
   renderClientStats();
+  renderAssigneeBacklogs();
 
   const totalAll = activeFilter === "all" ? tasks.length : tasks.filter((t) => t.label === activeFilter).length;
   const doneAll = activeFilter === "all" ? tasks.filter((t) => t.done).length : tasks.filter((t) => t.label === activeFilter && t.done).length;
