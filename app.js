@@ -594,13 +594,13 @@ function openTasksFor(list) {
 }
 
 function renderAssigneeBacklogs() {
-  const tomOpen = openTasksFor(tasks.filter((t) => t.assignee === "T" || t.assignee === "-"));
+  const tomOpen = openTasksFor(tasks.filter((t) => t.assignee === "T"));
   tomTaskList.innerHTML = "";
   tomOpen.forEach((t) => tomTaskList.appendChild(makeTaskRow(t)));
   tomEmptyState.style.display = tomOpen.length ? "none" : "block";
   tomOpenCount.textContent = `${tomOpen.length} open`;
 
-  const derekOpen = openTasksFor(tasks.filter((t) => t.assignee === "D" || t.assignee === "-"));
+  const derekOpen = openTasksFor(tasks.filter((t) => t.assignee === "D"));
   derekTaskList.innerHTML = "";
   derekOpen.forEach((t) => derekTaskList.appendChild(makeTaskRow(t)));
   derekEmptyState.style.display = derekOpen.length ? "none" : "block";
