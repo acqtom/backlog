@@ -19,6 +19,8 @@ const ASSIGNEE_COLORS = {
   "-": { bg: "#eaedf2", fg: "#64748b" },
 };
 
+const BOTH_LABEL_COLOR = { bg: "#eaedf2", fg: "#64748b" };
+
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function todayStr() {
@@ -301,7 +303,11 @@ function renderLabelOptions() {
     opt.textContent = name;
     labelSelect.appendChild(opt);
   });
-  if (clients.includes(prevValue)) labelSelect.value = prevValue;
+  const bothOpt = document.createElement("option");
+  bothOpt.value = "Both";
+  bothOpt.textContent = "Both";
+  labelSelect.appendChild(bothOpt);
+  if (clients.includes(prevValue) || prevValue === "Both") labelSelect.value = prevValue;
 }
 
 function clientTaskCount(name) {
@@ -320,7 +326,7 @@ async function commitRename(oldName, newValue) {
     renderClientStats();
     return;
   }
-  if (clients.some((c) => c.toLowerCase() === trimmed.toLowerCase() && c !== oldName)) {
+  if (clients.some((c) => c.toLowerCase() === trimmed.toLowerCase() && c !== oldName) || trimmed.toLowerCase() === "both") {
     alert(`"${trimmed}" already exists.`);
     renderClientStats();
     return;
@@ -347,7 +353,7 @@ async function commitAddClient(value) {
     renderClientStats();
     return;
   }
-  if (clients.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+  if (clients.some((c) => c.toLowerCase() === trimmed.toLowerCase()) || trimmed.toLowerCase() === "both") {
     alert(`"${trimmed}" already exists.`);
     renderClientStats();
     return;
@@ -533,7 +539,7 @@ function makeTaskRow(task) {
 
   const label = document.createElement("span");
   label.className = "task-label";
-  const color = clientColor(clients.indexOf(task.label));
+  const color = task.label === "Both" ? BOTH_LABEL_COLOR : clientColor(clients.indexOf(task.label));
   label.style.background = color.bg;
   label.style.color = color.fg;
   label.textContent = task.label;
