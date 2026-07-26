@@ -215,13 +215,13 @@ select:focus-visible,
 .lock-btn:hover { color: var(--accent-purple); }
 
 .content {
-  max-width: 1240px;
+  max-width: 1680px;
   margin: 0 auto;
   padding: 8px 36px 60px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-columns: minmax(0, 1fr) 420px;
   align-items: start;
-  gap: 24px;
+  gap: 28px;
 }
 
 .left-col {
