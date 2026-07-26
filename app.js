@@ -16,6 +16,7 @@ const CLIENT_PALETTE = [
 const ASSIGNEE_COLORS = {
   T: { bg: "#e3edff", fg: "#4a7dfc" },
   D: { bg: "#fbe6f1", fg: "#c2377f" },
+  "-": { bg: "#eaedf2", fg: "#64748b" },
 };
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -608,13 +609,13 @@ function openTasksFor(list) {
 }
 
 function renderAssigneeBacklogs() {
-  const tomOpen = openTasksFor(tasks.filter((t) => t.assignee === "T"));
+  const tomOpen = openTasksFor(tasks.filter((t) => t.assignee === "T" || t.assignee === "-"));
   tomTaskList.innerHTML = "";
   tomOpen.forEach((t) => tomTaskList.appendChild(makeTaskRow(t)));
   tomEmptyState.style.display = tomOpen.length ? "none" : "block";
   tomOpenCount.textContent = `${tomOpen.length} open`;
 
-  const derekOpen = openTasksFor(tasks.filter((t) => t.assignee === "D"));
+  const derekOpen = openTasksFor(tasks.filter((t) => t.assignee === "D" || t.assignee === "-"));
   derekTaskList.innerHTML = "";
   derekOpen.forEach((t) => derekTaskList.appendChild(makeTaskRow(t)));
   derekEmptyState.style.display = derekOpen.length ? "none" : "block";
