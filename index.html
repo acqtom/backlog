@@ -85,16 +85,11 @@
             <option value="D">D</option>
             <option value="-">-</option>
           </select>
-          <select id="repeatSelect">
-            <option value="none" selected>No repeat</option>
-            <option value="daily">Daily</option>
-            <option value="mwf">Mon/Wed/Fri</option>
-            <option value="custom">Custom&hellip;</option>
-          </select>
           <button type="button" id="priorityToggle" class="star-toggle-btn" title="Mark as top priority">&#9734;</button>
           <button type="submit" class="add-btn">Add</button>
         </form>
-        <div id="customDaysRow" class="custom-days-row hidden">
+        <div id="repeatDaysRow" class="repeat-days-row">
+          <span class="repeat-icon" title="Repeat on...">&#128257;</span>
           <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="0" />Sun</label>
           <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="1" />Mon</label>
           <label class="day-chip"><input type="checkbox" class="repeat-day-checkbox" value="2" />Tue</label>

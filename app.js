@@ -41,8 +41,6 @@ function isTaskDone(task) {
 function repeatLabel(task) {
   if (!isRepeating(task)) return "";
   const days = [...task.repeat.days].sort((a, b) => a - b);
-  if (days.length === 7) return "Daily";
-  if (days.length === 3 && days.join(",") === "1,3,5") return "Mon/Wed/Fri";
   return days.map((d) => DAY_LABELS[d]).join("/");
 }
 
@@ -196,8 +194,6 @@ const taskInput = document.getElementById("taskInput");
 const labelSelect = document.getElementById("labelSelect");
 const levelSelect = document.getElementById("levelSelect");
 const assigneeSelect = document.getElementById("assigneeSelect");
-const repeatSelect = document.getElementById("repeatSelect");
-const customDaysRow = document.getElementById("customDaysRow");
 const repeatDayCheckboxes = [...document.querySelectorAll(".repeat-day-checkbox")];
 const priorityToggle = document.getElementById("priorityToggle");
 const taskList = document.getElementById("taskList");
@@ -222,23 +218,12 @@ priorityToggle.addEventListener("click", () => {
   priorityToggle.innerHTML = addingPriority ? "&#9733;" : "&#9734;";
 });
 
-repeatSelect.addEventListener("change", () => {
-  customDaysRow.classList.toggle("hidden", repeatSelect.value !== "custom");
-});
-
 function computeRepeatDays() {
-  if (repeatSelect.value === "daily") return [0, 1, 2, 3, 4, 5, 6];
-  if (repeatSelect.value === "mwf") return [1, 3, 5];
-  if (repeatSelect.value === "custom") {
-    const days = repeatDayCheckboxes.filter((cb) => cb.checked).map((cb) => Number(cb.value));
-    return days.length ? days : null;
-  }
-  return null;
+  const days = repeatDayCheckboxes.filter((cb) => cb.checked).map((cb) => Number(cb.value));
+  return days.length ? days : null;
 }
 
 function resetRepeatControls() {
-  repeatSelect.value = "none";
-  customDaysRow.classList.add("hidden");
   repeatDayCheckboxes.forEach((cb) => (cb.checked = false));
 }
 
@@ -565,7 +550,7 @@ function makeTaskRow(task) {
     repeatBadge = document.createElement("span");
     repeatBadge.className = "task-repeat-badge";
     repeatBadge.title = "Repeats: " + repeatLabel(task);
-    repeatBadge.textContent = "\u{1F501}";
+    repeatBadge.textContent = "\u{1F501} " + repeatLabel(task);
   }
 
   const star = document.createElement("button");

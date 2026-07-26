@@ -524,8 +524,7 @@ select:focus-visible,
 
 #labelSelect,
 #levelSelect,
-#assigneeSelect,
-#repeatSelect {
+#assigneeSelect {
   padding: 10px 10px;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -569,11 +568,19 @@ select:focus-visible,
 
 .add-btn:hover { opacity: 0.9; }
 
-.custom-days-row {
+.repeat-days-row {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   margin-top: 10px;
+}
+
+.repeat-icon {
+  font-size: 16px;
+  color: var(--text-faint);
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .day-chip {
@@ -594,9 +601,17 @@ select:focus-visible,
 }
 
 .task-repeat-badge {
-  font-size: 13px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
   flex-shrink: 0;
-  line-height: 1;
+  background: var(--icon-badge-bg);
+  color: var(--icon-badge-fg);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* ---------- Task list ---------- */
