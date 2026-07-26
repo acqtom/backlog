@@ -7,7 +7,7 @@ const redis = new Redis({
 
 const APP_PASSWORD = process.env.APP_PASSWORD || "backlog123";
 const BOARD_KEY = "backlog:board";
-const DEFAULT_BOARD = { tasks: [], clients: ["Adriel", "Alex"], yearlyGoals: [], teamTasks: [], updatedAt: 0 };
+const DEFAULT_BOARD = { tasks: [], clients: ["Adriel", "Alex"], yearlyGoals: [], updatedAt: 0 };
 
 module.exports = async (req, res) => {
   if (req.headers["x-app-password"] !== APP_PASSWORD) {
@@ -27,7 +27,6 @@ module.exports = async (req, res) => {
       tasks: Array.isArray(body.tasks) ? body.tasks : [],
       clients: Array.isArray(body.clients) && body.clients.length ? body.clients : DEFAULT_BOARD.clients,
       yearlyGoals: Array.isArray(body.yearlyGoals) ? body.yearlyGoals : [],
-      teamTasks: Array.isArray(body.teamTasks) ? body.teamTasks : [],
       updatedAt: Date.now(),
     };
     await redis.set(BOARD_KEY, board);
