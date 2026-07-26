@@ -18,6 +18,33 @@ const ASSIGNEE_COLORS = {
   D: { bg: "#fbe6f1", fg: "#c2377f" },
 };
 
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function isRepeating(task) {
+  return !!(task.repeat && Array.isArray(task.repeat.days) && task.repeat.days.length);
+}
+
+function isDoneToday(task) {
+  return isRepeating(task) && task.lastCompletedDate === todayStr();
+}
+
+function isTaskDone(task) {
+  return isRepeating(task) ? isDoneToday(task) : !!task.done;
+}
+
+function repeatLabel(task) {
+  if (!isRepeating(task)) return "";
+  const days = [...task.repeat.days].sort((a, b) => a - b);
+  if (days.length === 7) return "Daily";
+  if (days.length === 3 && days.join(",") === "1,3,5") return "Mon/Wed/Fri";
+  return days.map((d) => DAY_LABELS[d]).join("/");
+}
+
 let tasks = [];
 let clients = ["Adriel", "Alex"];
 let yearlyGoals = [];
@@ -168,6 +195,9 @@ const taskInput = document.getElementById("taskInput");
 const labelSelect = document.getElementById("labelSelect");
 const levelSelect = document.getElementById("levelSelect");
 const assigneeSelect = document.getElementById("assigneeSelect");
+const repeatSelect = document.getElementById("repeatSelect");
+const customDaysRow = document.getElementById("customDaysRow");
+const repeatDayCheckboxes = [...document.querySelectorAll(".repeat-day-checkbox")];
 const priorityToggle = document.getElementById("priorityToggle");
 const taskList = document.getElementById("taskList");
 const completedList = document.getElementById("completedList");
@@ -191,11 +221,33 @@ priorityToggle.addEventListener("click", () => {
   priorityToggle.innerHTML = addingPriority ? "&#9733;" : "&#9734;";
 });
 
+repeatSelect.addEventListener("change", () => {
+  customDaysRow.classList.toggle("hidden", repeatSelect.value !== "custom");
+});
+
+function computeRepeatDays() {
+  if (repeatSelect.value === "daily") return [0, 1, 2, 3, 4, 5, 6];
+  if (repeatSelect.value === "mwf") return [1, 3, 5];
+  if (repeatSelect.value === "custom") {
+    const days = repeatDayCheckboxes.filter((cb) => cb.checked).map((cb) => Number(cb.value));
+    return days.length ? days : null;
+  }
+  return null;
+}
+
+function resetRepeatControls() {
+  repeatSelect.value = "none";
+  customDaysRow.classList.add("hidden");
+  repeatDayCheckboxes.forEach((cb) => (cb.checked = false));
+}
+
 // ---------- Add task ----------
 addTaskForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   const text = taskInput.value.trim();
   if (!text) return;
+
+  const repeatDays = computeRepeatDays();
 
   const newTask = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
@@ -204,6 +256,8 @@ addTaskForm.addEventListener("submit", async (e) => {
     level: levelSelect.value,
     assignee: assigneeSelect.value,
     priority: addingPriority,
+    repeat: repeatDays ? { days: repeatDays } : null,
+    lastCompletedDate: null,
     done: false,
     createdAt: Date.now(),
   };
@@ -212,6 +266,7 @@ addTaskForm.addEventListener("submit", async (e) => {
   addingPriority = false;
   priorityToggle.classList.remove("active");
   priorityToggle.innerHTML = "&#9734;";
+  resetRepeatControls();
 
   await mutateState((draft) => {
     draft.tasks.unshift(newTask);
@@ -264,7 +319,7 @@ function renderLabelOptions() {
 }
 
 function clientTaskCount(name) {
-  return tasks.filter((t) => t.label === name && !t.done).length;
+  return tasks.filter((t) => t.label === name && !isTaskDone(t)).length;
 }
 
 function countLabel(n) {
@@ -434,6 +489,16 @@ async function toggleDone(id) {
   await mutateState((draft) => {
     const task = draft.tasks.find((t) => t.id === id);
     if (!task) return;
+    if (isRepeating(task)) {
+      const today = todayStr();
+      if (task.lastCompletedDate === today) {
+        task.lastCompletedDate = null;
+      } else {
+        task.lastCompletedDate = today;
+        task.doneAt = Date.now();
+      }
+      return;
+    }
     task.done = !task.done;
     if (task.done) task.doneAt = Date.now();
   });
@@ -462,13 +527,14 @@ function taskLevel(task) {
 }
 
 function makeTaskRow(task) {
+  const doneVisual = isTaskDone(task);
   const row = document.createElement("div");
-  row.className = "task-row" + (task.done ? " done" : "") + (task.priority && !task.done ? " priority" : "");
+  row.className = "task-row" + (doneVisual ? " done" : "") + (task.priority && !doneVisual ? " priority" : "");
 
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.className = "task-checkbox";
-  checkbox.checked = task.done;
+  checkbox.checked = doneVisual;
   checkbox.addEventListener("change", () => toggleDone(task.id));
 
   const text = document.createElement("span");
@@ -493,6 +559,14 @@ function makeTaskRow(task) {
   assignee.style.color = assigneeColor.fg;
   assignee.textContent = task.assignee || "T";
 
+  let repeatBadge = null;
+  if (isRepeating(task)) {
+    repeatBadge = document.createElement("span");
+    repeatBadge.className = "task-repeat-badge";
+    repeatBadge.title = "Repeats: " + repeatLabel(task);
+    repeatBadge.textContent = "\u{1F501}";
+  }
+
   const star = document.createElement("button");
   star.type = "button";
   star.className = "star-btn" + (task.priority ? " active" : "");
@@ -512,6 +586,7 @@ function makeTaskRow(task) {
   row.appendChild(level);
   row.appendChild(label);
   row.appendChild(assignee);
+  if (repeatBadge) row.appendChild(repeatBadge);
   row.appendChild(star);
   row.appendChild(del);
   return row;
@@ -526,14 +601,20 @@ function sortOpenTasks(list) {
   });
 }
 
+function openTasksFor(list) {
+  const pending = sortOpenTasks(list.filter((t) => !isTaskDone(t)));
+  const doneTodayRepeating = sortOpenTasks(list.filter((t) => isRepeating(t) && isDoneToday(t)));
+  return [...pending, ...doneTodayRepeating];
+}
+
 function renderAssigneeBacklogs() {
-  const tomOpen = sortOpenTasks(tasks.filter((t) => !t.done && t.assignee === "T"));
+  const tomOpen = openTasksFor(tasks.filter((t) => t.assignee === "T"));
   tomTaskList.innerHTML = "";
   tomOpen.forEach((t) => tomTaskList.appendChild(makeTaskRow(t)));
   tomEmptyState.style.display = tomOpen.length ? "none" : "block";
   tomOpenCount.textContent = `${tomOpen.length} open`;
 
-  const derekOpen = sortOpenTasks(tasks.filter((t) => !t.done && t.assignee === "D"));
+  const derekOpen = openTasksFor(tasks.filter((t) => t.assignee === "D"));
   derekTaskList.innerHTML = "";
   derekOpen.forEach((t) => derekTaskList.appendChild(makeTaskRow(t)));
   derekEmptyState.style.display = derekOpen.length ? "none" : "block";
@@ -542,8 +623,8 @@ function renderAssigneeBacklogs() {
 
 function render() {
   const filtered = activeFilter === "all" ? tasks : tasks.filter((t) => t.label === activeFilter);
-  const open = sortOpenTasks(filtered.filter((t) => !t.done));
-  const done = filtered.filter((t) => t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+  const open = openTasksFor(filtered);
+  const done = filtered.filter((t) => isTaskDone(t)).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
 
   taskList.innerHTML = "";
   open.forEach((t) => taskList.appendChild(makeTaskRow(t)));
@@ -560,7 +641,7 @@ function render() {
   renderAssigneeBacklogs();
 
   const totalAll = activeFilter === "all" ? tasks.length : tasks.filter((t) => t.label === activeFilter).length;
-  const doneAll = activeFilter === "all" ? tasks.filter((t) => t.done).length : tasks.filter((t) => t.label === activeFilter && t.done).length;
+  const doneAll = activeFilter === "all" ? tasks.filter((t) => isTaskDone(t)).length : tasks.filter((t) => t.label === activeFilter && isTaskDone(t)).length;
   const pct = totalAll ? Math.round((doneAll / totalAll) * 100) : 0;
 
   document.getElementById("progressPercent").textContent = `${pct}%`;
