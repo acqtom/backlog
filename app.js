@@ -1,9 +1,22 @@
 const PASSWORD = "backlog123";
 const STORAGE_KEY = "taskBacklog.tasks";
 const UNLOCK_KEY = "taskBacklog.unlocked";
+const CLIENTS_STORAGE_KEY = "taskBacklog.clients";
+
+const CLIENT_PALETTE = [
+  { bg: "#e9e6ff", fg: "#5b52e5" },
+  { bg: "#e3edff", fg: "#4a7dfc" },
+  { bg: "#dff5f2", fg: "#0f9b8e" },
+  { bg: "#fbe6f1", fg: "#c2377f" },
+  { bg: "#efe6fb", fg: "#8452d6" },
+  { bg: "#e2f3fa", fg: "#0f7fa3" },
+];
 
 let tasks = [];
+let clients = [];
 let activeFilter = "all";
+let editingClientName = null;
+let isAddingClient = false;
 
 // ---------- Auth ----------
 const loginScreen = document.getElementById("loginScreen");
@@ -62,6 +75,23 @@ function saveTasks() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
 }
 
+function loadClients() {
+  try {
+    const raw = localStorage.getItem(CLIENTS_STORAGE_KEY);
+    clients = raw ? JSON.parse(raw) : ["Adriel", "Alex"];
+  } catch (e) {
+    clients = ["Adriel", "Alex"];
+  }
+}
+
+function saveClients() {
+  localStorage.setItem(CLIENTS_STORAGE_KEY, JSON.stringify(clients));
+}
+
+function clientColor(index) {
+  return CLIENT_PALETTE[((index % CLIENT_PALETTE.length) + CLIENT_PALETTE.length) % CLIENT_PALETTE.length];
+}
+
 // ---------- Elements ----------
 const addTaskForm = document.getElementById("addTaskForm");
 const taskInput = document.getElementById("taskInput");
@@ -73,6 +103,7 @@ const completedList = document.getElementById("completedList");
 const emptyState = document.getElementById("emptyState");
 const emptyCompleted = document.getElementById("emptyCompleted");
 const filterTabs = document.getElementById("filterTabs");
+const clientStats = document.getElementById("clientStats");
 
 let addingPriority = false;
 
@@ -119,6 +150,212 @@ filterTabs.addEventListener("click", (e) => {
   render();
 });
 
+// ---------- Client management ----------
+function renderFilterTabs() {
+  filterTabs.innerHTML = "";
+
+  const allBtn = document.createElement("button");
+  allBtn.type = "button";
+  allBtn.className = "tab" + (activeFilter === "all" ? " active" : "");
+  allBtn.dataset.filter = "all";
+  allBtn.textContent = "All";
+  filterTabs.appendChild(allBtn);
+
+  clients.forEach((name) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tab" + (activeFilter === name ? " active" : "");
+    btn.dataset.filter = name;
+    btn.textContent = name;
+    filterTabs.appendChild(btn);
+  });
+}
+
+function renderLabelOptions() {
+  const prevValue = labelSelect.value;
+  labelSelect.innerHTML = "";
+  clients.forEach((name) => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    labelSelect.appendChild(opt);
+  });
+  if (clients.includes(prevValue)) labelSelect.value = prevValue;
+}
+
+function clientTaskCount(name) {
+  return tasks.filter((t) => t.label === name && !t.done).length;
+}
+
+function countLabel(n) {
+  return `${n} task${n === 1 ? "" : "s"}`;
+}
+
+function commitRename(oldName, newValue) {
+  const trimmed = (newValue || "").trim();
+  editingClientName = null;
+
+  if (!trimmed || trimmed === oldName) {
+    renderClientStats();
+    return;
+  }
+  if (clients.some((c) => c.toLowerCase() === trimmed.toLowerCase() && c !== oldName)) {
+    alert(`"${trimmed}" already exists.`);
+    renderClientStats();
+    return;
+  }
+  const idx = clients.indexOf(oldName);
+  if (idx === -1) {
+    renderClientStats();
+    return;
+  }
+
+  clients[idx] = trimmed;
+  tasks.forEach((t) => {
+    if (t.label === oldName) t.label = trimmed;
+  });
+  if (activeFilter === oldName) activeFilter = trimmed;
+
+  saveClients();
+  saveTasks();
+  renderFilterTabs();
+  renderLabelOptions();
+  render();
+}
+
+function commitAddClient(value) {
+  const trimmed = (value || "").trim();
+  isAddingClient = false;
+
+  if (!trimmed) {
+    renderClientStats();
+    return;
+  }
+  if (clients.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+    alert(`"${trimmed}" already exists.`);
+    renderClientStats();
+    return;
+  }
+
+  clients.push(trimmed);
+  saveClients();
+  renderFilterTabs();
+  renderLabelOptions();
+  render();
+}
+
+function renderClientStats() {
+  clientStats.innerHTML = "";
+
+  clients.forEach((name, idx) => {
+    const color = clientColor(idx);
+    const card = document.createElement("div");
+    card.className = "client-stat-card";
+
+    const dot = document.createElement("span");
+    dot.className = "client-stat-dot";
+    dot.style.background = color.fg;
+    card.appendChild(dot);
+
+    const info = document.createElement("div");
+    info.className = "client-stat-info";
+
+    if (editingClientName === name) {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "client-rename-input";
+      input.value = name;
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commitRename(name, input.value);
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          editingClientName = null;
+          renderClientStats();
+        }
+      });
+      input.addEventListener("blur", () => commitRename(name, input.value));
+      info.appendChild(input);
+      requestAnimationFrame(() => {
+        input.focus();
+        input.select();
+      });
+    } else {
+      const nameRow = document.createElement("div");
+      nameRow.className = "client-stat-name-row";
+
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "client-stat-name";
+      nameSpan.textContent = name;
+      nameRow.appendChild(nameSpan);
+
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "client-edit-btn";
+      editBtn.innerHTML = "&#9998;";
+      editBtn.title = "Rename client";
+      editBtn.addEventListener("click", () => {
+        editingClientName = name;
+        renderClientStats();
+      });
+      nameRow.appendChild(editBtn);
+
+      info.appendChild(nameRow);
+    }
+
+    const count = document.createElement("div");
+    count.className = "client-stat-count";
+    count.textContent = countLabel(clientTaskCount(name));
+    info.appendChild(count);
+
+    card.appendChild(info);
+    clientStats.appendChild(card);
+  });
+
+  if (isAddingClient) {
+    const form = document.createElement("form");
+    form.className = "client-stat-card client-add-form";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "client-add-input";
+    input.placeholder = "Client name";
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        isAddingClient = false;
+        renderClientStats();
+      }
+    });
+    form.appendChild(input);
+
+    const btn = document.createElement("button");
+    btn.type = "submit";
+    btn.className = "add-btn-small";
+    btn.textContent = "Add";
+    form.appendChild(btn);
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      commitAddClient(input.value);
+    });
+
+    clientStats.appendChild(form);
+    requestAnimationFrame(() => input.focus());
+  } else {
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "client-stat-card add-client-card";
+    addBtn.textContent = "+ Add client";
+    addBtn.addEventListener("click", () => {
+      isAddingClient = true;
+      renderClientStats();
+    });
+    clientStats.appendChild(addBtn);
+  }
+}
+
 // ---------- Task actions ----------
 function toggleDone(id) {
   const task = tasks.find((t) => t.id === id);
@@ -147,10 +384,6 @@ function deleteTask(id) {
 const LEVEL_RANK = { high: 3, medium: 2, low: 1 };
 const LEVEL_TEXT = { high: "High", medium: "Medium", low: "Low" };
 
-function labelClass(label) {
-  return label === "Adriel" ? "label-adriel" : "label-alex";
-}
-
 function taskLevel(task) {
   return task.level || "medium";
 }
@@ -174,7 +407,10 @@ function makeTaskRow(task) {
   level.textContent = LEVEL_TEXT[taskLevel(task)];
 
   const label = document.createElement("span");
-  label.className = "task-label " + labelClass(task.label);
+  label.className = "task-label";
+  const color = clientColor(clients.indexOf(task.label));
+  label.style.background = color.bg;
+  label.style.color = color.fg;
   label.textContent = task.label;
 
   const star = document.createElement("button");
@@ -223,10 +459,7 @@ function render() {
   document.getElementById("openCount").textContent = `${open.length} open`;
   document.getElementById("completedCount").textContent = `${done.length} done`;
 
-  const adrielOpen = tasks.filter((t) => t.label === "Adriel" && !t.done).length;
-  const alexOpen = tasks.filter((t) => t.label === "Alex" && !t.done).length;
-  document.getElementById("adrielCount").textContent = `${adrielOpen} task${adrielOpen === 1 ? "" : "s"}`;
-  document.getElementById("alexCount").textContent = `${alexOpen} task${alexOpen === 1 ? "" : "s"}`;
+  renderClientStats();
 
   const totalAll = activeFilter === "all" ? tasks.length : tasks.filter((t) => t.label === activeFilter).length;
   const doneAll = activeFilter === "all" ? tasks.filter((t) => t.done).length : tasks.filter((t) => t.label === activeFilter && t.done).length;
@@ -343,7 +576,10 @@ yearlyForm.addEventListener("submit", (e) => {
 });
 
 // ---------- Init ----------
+loadClients();
 loadTasks();
+renderFilterTabs();
+renderLabelOptions();
 render();
 loadYearlyGoals();
 renderYearly();

@@ -12,8 +12,6 @@
   --accent-gold: #b8860f;
   --highlight-bg: #fdf0d5;
   --highlight-border: #e8b24d;
-  --label-adriel-bg: #e9e6ff;
-  --label-alex-bg: #e3edff;
   --icon-badge-bg: #ecebfc;
   --icon-badge-fg: #5b52e5;
   --danger: #d64545;
@@ -322,19 +320,88 @@ select:focus-visible,
   flex-shrink: 0;
 }
 
-.client-stat-dot.dot-adriel { background: var(--accent-purple); }
-.client-stat-dot.dot-alex { background: var(--accent-blue); }
+.client-stat-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.client-stat-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 
 .client-stat-name {
   font-weight: 700;
   font-size: 14px;
 }
 
+.client-edit-btn {
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.client-edit-btn:hover { color: var(--accent-purple); }
+
 .client-stat-count {
   font-size: 12px;
   color: var(--text-faint);
   margin-top: 1px;
   font-variant-numeric: tabular-nums;
+}
+
+.add-client-card {
+  border: 1px dashed var(--border);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-faint);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  justify-content: center;
+}
+
+.add-client-card:hover {
+  color: var(--accent-purple);
+  border-color: var(--accent-purple);
+  background: var(--card-bg);
+}
+
+.client-rename-input,
+.client-add-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--accent-purple);
+  border-radius: 8px;
+  font-size: 13px;
+  outline: none;
+  background: var(--card-bg);
+  color: var(--text);
+}
+
+.client-add-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.add-btn-small {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent-purple);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 /* ---------- Filter tabs ---------- */
@@ -557,16 +624,6 @@ select:focus-visible,
   border-radius: 999px;
   white-space: nowrap;
   flex-shrink: 0;
-}
-
-.task-label.label-adriel {
-  background: var(--label-adriel-bg);
-  color: var(--accent-purple);
-}
-
-.task-label.label-alex {
-  background: var(--label-alex-bg);
-  color: var(--accent-blue);
 }
 
 .task-level {

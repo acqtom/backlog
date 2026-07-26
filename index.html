@@ -64,36 +64,14 @@
         </div>
       </section>
 
-      <div class="client-stats" id="clientStats">
-        <div class="client-stat-card">
-          <span class="client-stat-dot dot-adriel"></span>
-          <div>
-            <div class="client-stat-name">Adriel</div>
-            <div class="client-stat-count" id="adrielCount">0 tasks</div>
-          </div>
-        </div>
-        <div class="client-stat-card">
-          <span class="client-stat-dot dot-alex"></span>
-          <div>
-            <div class="client-stat-name">Alex</div>
-            <div class="client-stat-count" id="alexCount">0 tasks</div>
-          </div>
-        </div>
-      </div>
+      <div class="client-stats" id="clientStats"></div>
 
-      <div class="filter-tabs" id="filterTabs">
-        <button class="tab active" data-filter="all">All</button>
-        <button class="tab" data-filter="Adriel">Adriel</button>
-        <button class="tab" data-filter="Alex">Alex</button>
-      </div>
+      <div class="filter-tabs" id="filterTabs"></div>
 
       <section class="card add-task-card">
         <form id="addTaskForm" class="add-task-form">
           <input type="text" id="taskInput" placeholder="Add a task..." required />
-          <select id="labelSelect">
-            <option value="Adriel">Adriel</option>
-            <option value="Alex">Alex</option>
-          </select>
+          <select id="labelSelect"></select>
           <select id="levelSelect">
             <option value="high">High</option>
             <option value="medium" selected>Medium</option>
