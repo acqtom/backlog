@@ -13,9 +13,15 @@ const CLIENT_PALETTE = [
   { bg: "#e2f3fa", fg: "#0f7fa3" },
 ];
 
+const ASSIGNEE_COLORS = {
+  T: { bg: "#e3edff", fg: "#4a7dfc" },
+  D: { bg: "#fbe6f1", fg: "#c2377f" },
+};
+
 let tasks = [];
 let clients = ["Adriel", "Alex"];
 let yearlyGoals = [];
+let teamTasks = [];
 let activeFilter = "all";
 let editingClientName = null;
 let isAddingClient = false;
@@ -102,11 +108,13 @@ function applyState(state) {
   tasks = Array.isArray(state.tasks) ? state.tasks : [];
   clients = Array.isArray(state.clients) && state.clients.length ? state.clients : ["Adriel", "Alex"];
   yearlyGoals = Array.isArray(state.yearlyGoals) ? state.yearlyGoals : [];
+  teamTasks = Array.isArray(state.teamTasks) ? state.teamTasks : [];
   lastUpdatedAt = state.updatedAt || 0;
   renderFilterTabs();
   renderLabelOptions();
   render();
   renderYearly();
+  renderTeamTasks();
 }
 
 async function mutateState(mutator) {
@@ -117,6 +125,7 @@ async function mutateState(mutator) {
       tasks: Array.isArray(latest.tasks) ? latest.tasks : [],
       clients: Array.isArray(latest.clients) && latest.clients.length ? latest.clients : ["Adriel", "Alex"],
       yearlyGoals: Array.isArray(latest.yearlyGoals) ? latest.yearlyGoals : [],
+      teamTasks: Array.isArray(latest.teamTasks) ? latest.teamTasks : [],
     };
     mutator(draft);
     const saved = await apiSave(draft);
@@ -619,4 +628,103 @@ yearlyForm.addEventListener("submit", async (e) => {
     draft.yearlyGoals.unshift(newGoal);
   });
   yearlyInput.focus();
+});
+
+// ---------- Team tasks (task + priority + responsible person) ----------
+const teamTaskForm = document.getElementById("teamTaskForm");
+const teamTaskInput = document.getElementById("teamTaskInput");
+const teamPrioritySelect = document.getElementById("teamPrioritySelect");
+const teamAssigneeSelect = document.getElementById("teamAssigneeSelect");
+const teamTaskList = document.getElementById("teamTaskList");
+const teamTaskEmpty = document.getElementById("teamTaskEmpty");
+const teamOpenCount = document.getElementById("teamOpenCount");
+
+function makeTeamTaskRow(task) {
+  const row = document.createElement("div");
+  row.className = "task-row" + (task.done ? " done" : "");
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.className = "task-checkbox";
+  checkbox.checked = task.done;
+  checkbox.addEventListener("change", async () => {
+    await mutateState((draft) => {
+      const t = draft.teamTasks.find((x) => x.id === task.id);
+      if (!t) return;
+      t.done = !t.done;
+      if (t.done) t.doneAt = Date.now();
+    });
+  });
+
+  const text = document.createElement("span");
+  text.className = "task-text";
+  text.textContent = task.text;
+
+  const level = document.createElement("span");
+  level.className = "task-level level-" + taskLevel(task);
+  level.textContent = LEVEL_TEXT[taskLevel(task)];
+
+  const assignee = document.createElement("span");
+  assignee.className = "task-label";
+  const color = ASSIGNEE_COLORS[task.assignee] || ASSIGNEE_COLORS.T;
+  assignee.style.background = color.bg;
+  assignee.style.color = color.fg;
+  assignee.textContent = task.assignee;
+
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "delete-btn";
+  del.innerHTML = "&#10005;";
+  del.title = "Delete task";
+  del.addEventListener("click", async () => {
+    await mutateState((draft) => {
+      draft.teamTasks = draft.teamTasks.filter((t) => t.id !== task.id);
+    });
+  });
+
+  row.appendChild(checkbox);
+  row.appendChild(text);
+  row.appendChild(level);
+  row.appendChild(assignee);
+  row.appendChild(del);
+  return row;
+}
+
+function renderTeamTasks() {
+  const open = teamTasks
+    .filter((t) => !t.done)
+    .sort((a, b) => {
+      const rankDiff = LEVEL_RANK[taskLevel(b)] - LEVEL_RANK[taskLevel(a)];
+      if (rankDiff !== 0) return rankDiff;
+      return b.createdAt - a.createdAt;
+    });
+  const done = teamTasks.filter((t) => t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+  const sorted = [...open, ...done];
+
+  teamTaskList.innerHTML = "";
+  sorted.forEach((t) => teamTaskList.appendChild(makeTeamTaskRow(t)));
+  teamTaskEmpty.style.display = sorted.length ? "none" : "block";
+  teamOpenCount.textContent = `${open.length} open`;
+}
+
+teamTaskForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = teamTaskInput.value.trim();
+  if (!text) return;
+
+  const newTask = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+    text,
+    level: teamPrioritySelect.value,
+    assignee: teamAssigneeSelect.value,
+    done: false,
+    createdAt: Date.now(),
+  };
+
+  teamTaskInput.value = "";
+  await mutateState((draft) => {
+    if (!Array.isArray(draft.teamTasks)) draft.teamTasks = [];
+    draft.teamTasks.unshift(newTask);
+  });
+  teamTaskInput.focus();
 });

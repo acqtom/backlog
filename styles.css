@@ -729,6 +729,46 @@ select:focus-visible,
   padding: 10px 10px;
 }
 
+/* ---------- Team tasks ---------- */
+.team-task-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.team-task-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+  outline: none;
+  background: var(--card-bg);
+  color: var(--text);
+}
+
+.team-task-form input:focus { border-color: var(--accent-purple); }
+
+.team-task-form select {
+  padding: 10px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+  background: var(--card-bg);
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.team-task-list .task-row {
+  padding: 10px 10px;
+}
+
+@media (max-width: 480px) {
+  .team-task-form { flex-wrap: wrap; }
+  #teamTaskInput { flex-basis: 100%; }
+}
+
 @media (max-width: 480px) {
   .add-task-form { flex-wrap: wrap; }
   #taskInput { flex-basis: 100%; }

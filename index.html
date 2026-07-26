@@ -146,6 +146,38 @@
         <div id="yearlyList" class="task-list yearly-list"></div>
         <p id="yearlyEmpty" class="empty-state">No yearly goals yet.</p>
       </section>
+
+      <section class="card team-card">
+        <div class="card-header">
+          <div class="card-heading">
+            <h2>Team Tasks</h2>
+            <span class="card-count" id="teamOpenCount">0 open</span>
+          </div>
+          <div class="icon-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M17 11a4 4 0 1 0-3.2-6.4"></path>
+              <path d="M1 21v-1a6 6 0 0 1 6-6h.5"></path>
+              <path d="M14 21v-1a5 5 0 0 1 5-5h0a5 5 0 0 1 5 5v1"></path>
+            </svg>
+          </div>
+        </div>
+        <form id="teamTaskForm" class="team-task-form">
+          <input type="text" id="teamTaskInput" placeholder="Add a task..." required />
+          <select id="teamPrioritySelect">
+            <option value="high">High</option>
+            <option value="medium" selected>Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <select id="teamAssigneeSelect">
+            <option value="T">T</option>
+            <option value="D">D</option>
+          </select>
+          <button type="submit" class="add-btn">Add</button>
+        </form>
+        <div id="teamTaskList" class="task-list team-task-list"></div>
+        <p id="teamTaskEmpty" class="empty-state">No team tasks yet.</p>
+      </section>
      </aside>
     </main>
   </div>
